@@ -89,12 +89,42 @@ const repair = action('repair','Restore habitat','Repair the habitat and reduce 
 const relay = action('relay','Repair Earth relay','Open the long-range link for your mission report.',2,2);
 const harvest = action('harvest','Harvest and log','Add 3 meals and record the experiment.',1);
 
+export const crew = [
+  {id:'mika',name:'Mika',role:'Engineer',color:'#ee9866',specialty:'Repairs, shielding, and mining cost 1 less power.',tasks:['repair','maintain','relay','brace','mine']},
+  {id:'sol',name:'Sol',role:'Botanist',color:'#acd29b',specialty:'Growing, harvesting, and ice recovery cost 1 less power.',tasks:['grow','harvest','ice']},
+  {id:'pip',name:'Pip',role:'Field robot',color:'#94cbd6',specialty:'Cargo recovery and remote inspection cost 1 less power. Mining uses no suit oxygen.',tasks:['air','parts','remote']},
+];
+export function crewMember(id='pip') { return crew.find(member=>member.id===id); }
+export function taskStation(id) {
+  if(['mine','ice'].includes(id)) return id==='mine'?'ore':'ice';
+  if(['air','parts'].includes(id)) return 'cargo';
+  if(['grow','harvest'].includes(id)) return 'greenhouse';
+  if(['relay','report','beacon','pulse'].includes(id)) return 'relay';
+  if(id==='remote') return 'solar';
+  return 'habitat';
+}
+export function supplyStatus(state) {
+  return state.deposits??{ore:3,ice:3};
+}
+export function milestoneProgress(s) {
+  return [
+    {name:'Ready for the storm',done:s.habitat&&s.shield},
+    {name:'Fresh food on Mars',done:s.harvested},
+    {name:'A signal to Earth',done:s.relay&&s.report},
+    {name:'Field explorer',done:(s.collected??0)>=3},
+  ];
+}
+
 export function choices(s) {
   if(s.day === 5 || s.hazard === 'storm') {
     return [action('reserve','Shelter and conserve','Bring everyone inside. Spend extra power maintaining the shelter if it is unfinished.'),
       action('remote','Send Pip to inspect','Keep the crew inside and inspect the panels remotely. Reduces the battery fault on day nine.',2)];
   }
   const options = [reserve];
+  if((s.integrity??100)<100)options.push(action('maintain','Maintain the outpost','Restore 20 integrity using 2 spare parts.',2,2));
+  const deposits=supplyStatus(s);
+  if(deposits.ore>0) options.push(action('mine','Mine the ore seam','Collect 2 spare parts. Uses 1 suit oxygen for a human crew member.',2));
+  if(deposits.ice>0) options.push(action('ice','Collect and process ice','Recover 3 oxygen after processing. Uses 1 suit oxygen for a human crew member.',2));
   if(!s.habitat) options.push(repair);
   if(!s.relay && s.day >= 3) options.push(relay);
   if(!s.shield) options.push(action('brace','Reinforce shelter','Prepare shielding before the solar storm.',s.site==='ridge'?1:2,s.site==='ridge'?2:3));
@@ -133,29 +163,45 @@ export function startMission(plan, seed=147) {
   return {mode:'story',phase:'plan',day:1,seed,site,cargo,priority,originalPriority:priority,
     budget,payload,energy:energy-extra.draw,capacity,oxygen:oxygen+extra.oxygen,food,parts:parts+extra.parts,crop:1,harvested:false,
     habitat:false,relay:payload==='module',shield:false,inspection:false,report:false,beacon:null,
-    caches:{air:false,parts:false},hazard:'clear',log:[],result:null};
+    caches:{air:false,parts:false},deposits:{ore:3,ice:3},experience:{mika:0,sol:0,pip:0},
+    collected:0,commendations:[],integrity:100,hazard:'clear',log:[],result:null};
 }
 
 const max = (value,limit) => Math.min(limit,Math.max(0,value));
-export function forecast(state,{action:id,support}) {
+export function forecast(state,{action:id,support,assignee='pip'}) {
   const selected=choices(state).find(item=>item.id===id);
+  const member=crewMember(assignee);
+  if(!member) return {valid:false,message:'Assign Mika, Sol, or Pip to this task.'};
+  if(id==='remote'&&assignee!=='pip') return {valid:false,message:'Only Pip can inspect outdoors during the shelter exercise.'};
   if(!selected || ![0,1,2,3].includes(support)) return {valid:false,message:'Choose a task and a life-support setting.'};
   const storm=state.hazard==='storm';
   const clearYield=state.site==='plain'?8:6;
-  const solar=storm ? clearYield-3 : clearYield;
-  const fault=state.hazard==='fault'&&!state.inspection ? 5 : 0;
+  const solar=state.solarApplied?0:storm ? clearYield-3 : clearYield;
+  const fault=state.solarApplied?0:state.hazard==='fault'&&!state.inspection ? 5 : 0;
   const capacity=Math.max(8,state.capacity-fault);
-  const shelter=storm&&!state.shield ? shelterPower(state):0;
+  const shelter=!state.workSession&&storm&&!state.shield ? shelterPower(state):0;
   const essential=support===3&&!state.habitat ? 1:0;
   const available=Math.min(capacity,state.energy+solar);
-  const cost=selected.power+support+essential+shelter;
+  const discount=member.tasks.includes(id)&&selected.power>0?1:0;
+  const taskPower=selected.power-discount;
+  const cost=taskPower+support+essential+shelter;
+  const collecting=['mine','ice'].includes(id);
+  const suitOxygen=collecting&&assignee!=='pip'?1:0;
   if(cost>available || selected.parts>state.parts) return {valid:false,message:'This plan needs more power or spare parts.'};
-  const supply=state.mode==='endless'&&state.day%5===0;
+  const supply=!state.workSession&&state.mode==='endless'&&state.day%5===0;
+  const damage=[];
+  if(!state.workSession){
+    if(storm&&!state.shield)damage.push({amount:18,reason:'Unreinforced storm shelter strained the outpost systems.'});
+    if(state.hazard==='fault'&&!state.inspection)damage.push({amount:10,reason:'An uninspected battery fault damaged the power system.'});
+    if(state.oxygen+support-2<3)damage.push({amount:8,reason:'Low oxygen reserves strained the emergency air system.'});
+  }
+  const integrity=max((state.integrity??100)+(id==='maintain'?20:0)-damage.reduce((sum,item)=>sum+item.amount,0),100);
   const next = {
+    integrity,
     capacity, energy:max(available-cost+(supply?4:0),capacity),
-    oxygen:max(state.oxygen + support - 2 + (id==='air'?5:0)+(supply?2:0),16),
-    food:max(state.food-1+(id==='harvest'?3:0)+(supply?6:0),20),
-    parts:max(state.parts-selected.parts+(id==='parts'?4:0)+(supply?3:0),16),
+    oxygen:max(state.oxygen + support - (state.workSession?0:2) - suitOxygen + (id==='air'?5:0)+(id==='ice'?3:0)+(supply?2:0),16),
+    food:max(state.food-(state.workSession?0:1)+(id==='harvest'?3:0)+(supply?6:0),20),
+    parts:max(state.parts-selected.parts+(id==='parts'?4:0)+(id==='mine'?2:0)+(supply?3:0),16),
     crop:id==='harvest'&&state.mode==='endless'?0:Math.min(3,state.crop+(id==='grow'?1:0)),
     harvested:state.harvested||id==='harvest', habitat:state.habitat||id==='repair',
     relay:state.relay||id==='relay', shield:state.shield||id==='brace',
@@ -163,11 +209,17 @@ export function forecast(state,{action:id,support}) {
     beacon:id==='beacon'?'continuous':id==='pulse'?'pulsed':state.beacon,
     priority:id.startsWith('plan-')?id.slice(5):state.priority,
     caches:{air:state.caches.air||id==='air',parts:state.caches.parts||id==='parts'},
+    deposits:{ore:supplyStatus(state).ore-(id==='mine'?1:0),ice:supplyStatus(state).ice-(id==='ice'?1:0)},
+    experience:{...(state.experience??{mika:0,sol:0,pip:0}),[assignee]:(state.experience?.[assignee]??0)+(id==='reserve'?0:1)},
+    collected:(state.collected??0)+(['mine','ice','air','parts'].includes(id)?1:0),
   };
-  const failure=next.oxygen===0?'Oxygen reached zero. Allocate more power to life support.':
+  const failure=integrity===0?'Outpost integrity reached zero. Prepare shielding, inspect the battery, and schedule maintenance.':
+    next.oxygen===0?'Oxygen reached zero. Allocate more power to life support.':
     next.food===0?'The final meal is gone. Plan an earlier harvest or start with more supplies.':null;
   const message=id==='report'?(state.relay?'Mission report delivered.':'Short status received. Repair the relay to deliver a full report.'):'';
-  return {valid:true, solar,cost,supply,fault,shelter,selected,next,failure,message,
+  const earned=milestoneProgress(next).filter(item=>item.done&&!(state.commendations??[]).includes(item.name)).map(item=>item.name);
+  next.commendations=[...(state.commendations??[]),...earned];
+  return {valid:true, solar,cost,taskPower,discount,suitOxygen,assignee,earned,damage,supply,fault,shelter,selected,next,failure,message,
     communications:id==='report'?{sentMinute:0,oneWayMinutes:16,replyMinute:32}:null};
 }
 
@@ -178,15 +230,15 @@ export function resolveDay(state,input) {
   return {...state,...result.next,phase:result.failure?'failed':'debrief', result,
     checkpoint:state,log:[...state.log.slice(state.mode==='endless'?-29:0),{day:state.day,action:result.selected.id,task:result.selected.name,
       oxygen:result.next.oxygen,energy:result.next.energy,food:result.next.food,
-      priority:result.next.priority}]};
+      integrity:result.next.integrity,assignee:result.assignee,priority:result.next.priority}]};
 }
 
 export function retry(s) { return s.phase==='failed' ? s.checkpoint : s; }
 
 export function nextDay(s, priority) {
-  if(s.phase==='contract') return {...s,phase:'plan',priority};
+  if(s.phase==='contract') return {...s,phase:'plan',priority,deposits:{ore:3,ice:3}};
   if(s.phase!=='debrief') return s;
-  const reset={...s,result:null,checkpoint:null};
+  const reset={...s,result:null,checkpoint:null,dayStart:null,workday:null,solarApplied:false};
   if(s.mode==='story'&&s.day===10) return {...reset,phase:'review'};
   reset.day++;
   reset.phase=s.mode==='endless'&&reset.day%10===1?'contract':'plan';
@@ -196,7 +248,7 @@ export function nextDay(s, priority) {
 
 export function extend(s) {
   if(s.phase!=='review') return s;
-  return {...s, mode:'endless',phase:'contract',day:11,hazard:'clear',food:Math.min(20,s.food+6),
+  return {...s, mode:'endless',phase:'contract',day:11,hazard:'clear',dayStart:null,workday:null,solarApplied:false,food:Math.min(20,s.food+6),
     oxygen:Math.min(16,s.oxygen+2),parts:Math.min(16,s.parts+3),energy:Math.min(s.capacity,s.energy+4)};
 }
 
@@ -214,4 +266,48 @@ export function contractCompleted(s) {
   if(s.priority==='garden') return recent.some(day=>day.action==='harvest');
   if(s.priority==='signal') return s.relay&&recent.some(day=>day.action==='report');
   return s.habitat&&s.shield;
+}
+
+export function prepareDay(state) {
+  if(state.phase!=='plan'||state.workday)return state;
+  const solar=state.hazard==='storm'?(state.site==='plain'?5:3):(state.site==='plain'?8:6);
+  const fault=state.hazard==='fault'&&!state.inspection?5:0;
+  const capacity=Math.max(8,state.capacity-fault);
+  return {...state,capacity,energy:Math.min(capacity,state.energy+solar),solarApplied:true,
+    dayStart:state,workday:{completed:[],solar,fault},fieldResult:null};
+}
+
+export function forecastTask(state,id,assignee) {
+  if(state.phase!=='plan'||!state.workday||state.workday.completed.length>=2)
+    return {valid:false,message:'Your two work slots are complete. Check life support and end the day.'};
+  if(state.workday.completed.some(item=>item.id===id)&&id!=='reserve')
+    return {valid:false,message:'This task is already complete today. Choose another assignment.'};
+  const result=forecast({...state,workSession:true},{action:id,support:0,assignee});
+  if(result.valid&&result.next.oxygen===0)
+    return {valid:false,message:'Keep at least 1 oxygen in reserve for this expedition. Assign Pip or collect ice first.'};
+  return result;
+}
+
+export function executeTask(state,id,assignee) {
+  const result=forecastTask(state,id,assignee);
+  if(!result.valid)return state;
+  return {...state,...result.next,fieldResult:result,workday:{...state.workday,
+    completed:[...state.workday.completed,{id,name:result.selected.name,assignee,power:result.taskPower,communications:result.communications,message:result.message}]}};
+}
+
+export function finishWorkday(state,support) {
+  if(state.phase!=='plan'||!state.workday||state.workday.completed.length<2)return state;
+  const resolved=resolveDay(state,{action:'reserve',support});
+  if(resolved===state)return state;
+  const completed=state.workday.completed;
+  const taskNames=completed.map(task=>task.name).join(' + ');
+  resolved.result={...resolved.result,solar:state.workday.solar,fault:state.workday.fault,
+    cost:resolved.result.cost+completed.reduce((sum,item)=>sum+item.power,0),
+    selected:{...resolved.result.selected,name:taskNames},earned:state.fieldResult?.earned??[]};
+  const transmitted=completed.find(task=>task.communications);
+  if(transmitted)Object.assign(resolved.result,{communications:transmitted.communications,message:transmitted.message});
+  resolved.log=resolved.log.map((entry,index)=>index===resolved.log.length-1?
+    {...entry,task:taskNames,action:completed.find(task=>task.id==='report'||task.id==='harvest')?.id??completed[0].id,assignments:completed}:entry);
+  resolved.checkpoint=state.dayStart;
+  return resolved;
 }
