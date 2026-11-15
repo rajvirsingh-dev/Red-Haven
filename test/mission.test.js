@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {startMission, forecast, resolveDay, nextDay, extend, choices, plans, retry, checkPlan, flareFor, shelterPower, achievements} from '../src/mission.js';
+import {startMission, forecast, resolveDay, nextDay, extend, choices, plans, retry, checkPlan, flareFor, shelterPower, achievements,prepareDay,forecastTask,executeTask,finishWorkday,supplyStatus} from '../src/mission.js';
 
 function run(plan) {
   let state = startMission(plan, 147);
@@ -36,7 +36,8 @@ test('endless can operate sustainably for 100 days and never repeats one-use car
   let state = extend(run({priority:'shelter',site:'ridge',cargo:'battery'}));
   for(let day=11;day<=110;day++){
     if(state.phase==='contract') state=nextDay(state,'shelter');
-    const resolved=resolveDay(state,{action:'reserve',support:3});
+    const task=state.integrity<80&&forecast(state,{action:'maintain',support:3}).valid?'maintain':'reserve';
+    const resolved=resolveDay(state,{action:task,support:3});
     assert.equal(resolved.phase,'debrief',JSON.stringify(resolved.result));
     state=nextDay(resolved);
   }
@@ -74,4 +75,66 @@ test('a mission can finish all three objectives and a one-use cache remains cons
   }
   assert.equal(state.phase,'review');
   assert.ok(achievements(state).every(([, achieved])=>achieved));
+});
+
+test('two-slot workdays remain survivable for all 18 baseline manifests',()=>{
+  for(const priority of plans.priority)for(const site of plans.site)for(const cargo of plans.cargo){
+    let state=startMission({priority:priority.id,site:site.id,cargo:cargo.id});
+    for(let day=1;day<=10;day++){
+      state=prepareDay(state);
+      assert.equal(prepareDay(state),state,'Solar recharge must apply once');
+      for(let slot=0;slot<2;slot++){
+        const action=day===1&&slot===0?'repair':'reserve';
+        state=executeTask(state,action,action==='repair'?'mika':'pip');
+        assert.equal(state.workday.completed.length,slot+1);
+      }
+      assert.equal(executeTask(state,'reserve','pip'),state,'No third work slot');
+      const night=finishWorkday(state,3);
+      assert.equal(night.phase,'debrief',JSON.stringify({priority,site,cargo,day}));
+      assert.equal(finishWorkday(night,3),night,'Cannot resolve a night twice');
+      state=nextDay(night);
+    }
+    assert.equal(state.phase,'review');
+    assert.equal(state.log.length,10);
+  }
+});
+
+test('mining consumes suit oxygen and deposits while specialties and robot assignment change costs',()=>{
+  const initial=prepareDay(startMission({priority:'shelter',site:'plain',cargo:'battery'}));
+  const mika=forecastTask(initial,'mine','mika');
+  const pip=forecastTask(initial,'mine','pip');
+  assert.equal(mika.taskPower,1);
+  assert.equal(mika.suitOxygen,1);
+  assert.equal(pip.taskPower,2);
+  assert.equal(pip.suitOxygen,0);
+  const mined=executeTask(initial,'mine','mika');
+  assert.equal(mined.parts,initial.parts+2);
+  assert.equal(mined.oxygen,initial.oxygen-1);
+  assert.equal(mined.food,initial.food);
+  assert.equal(supplyStatus(mined).ore,2);
+  assert.equal(mined.experience.mika,1);
+  assert.equal(executeTask(mined,'mine','mika'),mined,'Deposit work is limited to one expedition per day');
+  const depleted={...initial,deposits:{ore:0,ice:0}};
+  assert.ok(!choices(depleted).some(task=>['mine','ice'].includes(task.id)));
+  const legacy={...initial};delete legacy.deposits;delete legacy.experience;
+  assert.equal(executeTask(legacy,'mine','mika').experience.mika,1);
+});
+
+test('two work slots, overnight supplies, retry, and saved work remain consistent',()=>{
+  let state=prepareDay(startMission({priority:'garden',site:'ridge',cargo:'supplies'}));
+  assert.equal(finishWorkday(state,3),state);
+  state=executeTask(state,'mine','mika');
+  state=JSON.parse(JSON.stringify(state));
+  state=prepareDay(state);
+  assert.equal(state.workday.completed.length,1);
+  state=executeTask(state,'ice','sol');
+  const failed=finishWorkday({...state,oxygen:1},0);
+  assert.equal(failed.phase,'failed');
+  const restored=prepareDay(retry(failed));
+  assert.equal(restored.workday.completed.length,0);
+  assert.equal(restored.parts,4);
+  assert.equal(restored.experience.mika,0);
+  const storm={...state,day:5,hazard:'storm',workday:{completed:[]}};
+  assert.equal(forecastTask(storm,'remote','mika').valid,false);
+  assert.ok(!choices(storm).some(task=>task.id==='mine'));
 });
