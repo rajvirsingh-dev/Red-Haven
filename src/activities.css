@@ -1,0 +1,26 @@
+.activity-dialog{width:min(590px,calc(100% - 24px));padding:24px}
+.activity-dialog .primary{margin-top:18px}
+.activity-dialog h2{font-size:1.5rem;line-height:1.12}
+.puzzle-feedback{min-height:1.6em;color:#f7c993;font-size:.85rem}
+.drill-rock{position:relative;height:120px;margin:18px 0;background:linear-gradient(35deg,#79563a 20%,#9e7350 20%,#9e7350 46%,#614b38 46%,#614b38 67%,#a27850 67%);border-radius:25px 15px 22px 10px;overflow:hidden}
+.drill-band{position:absolute;top:0;bottom:0;width:10%;translate:-50% 0;background:#d4eaa56b;border-left:2px solid #d9e6a0;border-right:2px solid #d9e6a0}
+.drill-aim{position:absolute;top:27px;bottom:27px;width:3px;translate:-50% 0;background:#f9d99a;box-shadow:0 0 0 6px #161f2970}
+.pipe-labels{display:flex;justify-content:space-between;font-size:.82rem;color:#bde3db}
+.pipe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.pipe-tile,.pipe-rock{aspect-ratio:1;border-radius:8px}
+.pipe-tile{position:relative;background:#283b35;border:1px solid #829884}
+.pipe-rock{background:#4c4434}
+.pipe-tile i{position:absolute;display:none;background:#abcfc5;width:16%;height:50%;left:42%;top:0;transform-origin:50% 100%}
+.pipe-tile i.open{display:block}.pipe-tile i.right{rotate:90deg}.pipe-tile i.down{rotate:180deg}.pipe-tile i.left{rotate:270deg}
+.pipe-tile:after{content:"";position:absolute;inset:38%;border-radius:50%;background:#658e83;border:2px solid #e1ecce}
+.manifest-sequence{display:flex;gap:12px;justify-content:center;margin:25px 0}
+.manifest-sequence>div{border:1px solid #91b5a2;padding:18px 12px;display:grid;gap:7px;border-radius:9px;min-width:25%}
+.manifest-sequence span{font-size:.75rem;color:#bfd1bd}
+.manifest-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.manifest-options button{justify-content:center;padding:20px}
+.plant-options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.plant-options button{display:flex;flex-direction:column;align-items:center;padding:12px 5px;gap:4px;font-size:.72rem}
+.plant-options button.picked{border-color:#e9c17c;background:#42553a}
+.plant-shape{display:block;width:22px;height:30px;background:#9fc879;border-radius:90% 0 80% 0;rotate:-30deg;margin:2px 0 9px}
+.plant-shape:after{content:"";display:block;width:2px;height:38px;rotate:30deg;background:#e0d5a2;translate:10px 4px}
+@media(max-width:500px){.activity-dialog{padding:17px}.activity-dialog h2{font-size:1.25rem}.plant-options{gap:4px}.manifest-sequence{gap:6px}.manifest-sequence>div{padding:12px 9px}}

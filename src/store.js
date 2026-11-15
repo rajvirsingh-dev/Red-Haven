@@ -1,6 +1,6 @@
 import {createStore} from 'zustand/vanilla';
 import {persist} from 'zustand/middleware';
-import {startMission,resolveDay,nextDay,retry,extend} from './mission.js';
+import {startMission,resolveDay,nextDay,retry,extend,prepareDay,executeTask,finishWorkday} from './mission.js';
 
 export const store = createStore(persist((set,get)=>({
   mission:null, sound:false,
@@ -10,7 +10,12 @@ export const store = createStore(persist((set,get)=>({
   retry:()=>set({mission:retry(get().mission)}),
   extend:()=>set({mission:extend(get().mission)}),
   setSound:sound=>set({sound}),
+  music:0.35,effects:0.65,
+  setVolume:(channel,volume)=>set({[channel]:volume}),
+  prepare:()=>set({mission:prepareDay(get().mission)}),
+  assign:(task,member)=>set({mission:executeTask(get().mission,task,member)}),
+  finish:support=>set({mission:finishWorkday(get().mission,support)}),
 }),{
   name:'redhaven-v1',version:1,
-  partialize:({mission,sound})=>({mission,sound}),
+  partialize:({mission,sound,music,effects})=>({mission,sound,music,effects}),
 }));
