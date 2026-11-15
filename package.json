@@ -1,0 +1,38 @@
+{
+  "name": "redhaven",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build --base=./",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajvirsingh-dev/Red-Haven.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/rajvirsingh-dev/Red-Haven/issues"
+  },
+  "homepage": "https://github.com/rajvirsingh-dev/Red-Haven#readme",
+  "private": true,
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "howler": "^2.2.4",
+    "three": "^0.187.0",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}
