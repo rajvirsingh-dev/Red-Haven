@@ -3,8 +3,9 @@ import {persist} from 'zustand/middleware';
 import {startMission,resolveDay,nextDay,retry,extend,prepareDay,executeTask,finishWorkday} from './mission.js';
 
 export const store = createStore(persist((set,get)=>({
-  mission:null, sound:false,
-  start:plan=>set({mission:startMission(plan,crypto.getRandomValues(new Uint32Array(1))[0])}),
+  mission:null, sound:false,briefingStep:null,
+  start:plan=>set({mission:startMission(plan,crypto.getRandomValues(new Uint32Array(1))[0]),briefingStep:0}),
+  advanceBriefing:step=>set({briefingStep:Math.max(0,Math.min(3,step))}),
   commit:plan=>set({mission:resolveDay(get().mission,plan)}),
   continue:priority=>set({mission:nextDay(get().mission,priority)}),
   retry:()=>set({mission:retry(get().mission)}),
@@ -17,5 +18,5 @@ export const store = createStore(persist((set,get)=>({
   finish:support=>set({mission:finishWorkday(get().mission,support)}),
 }),{
   name:'redhaven-v1',version:1,
-  partialize:({mission,sound,music,effects})=>({mission,sound,music,effects}),
+  partialize:({mission,sound,music,effects,briefingStep})=>({mission,sound,music,effects,briefingStep}),
 }));
