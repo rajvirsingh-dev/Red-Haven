@@ -10,6 +10,8 @@ import {setSound,playSound,setVolumes,setAudioContext,playTaskSound,stopWorkSoun
 import {store} from './store.js';
 import {portrait,crewPanel,dayProgress,workSlots,milestones,tutorial,captainInbox,objectiveChecklist} from './interaction.js';
 import {playActivity} from './activities.js';
+import {installAssignmentDrag} from './drag.js';
+import {openingStory} from './story.js';
 import {plans,chapters,choices,forecast,achievements,checkPlan,flareFor,shelterPower,source,flareCount,warningTomorrow,contractCompleted,crew,crewMember,taskStation,supplyStatus,forecastTask,milestoneProgress} from './mission.js';
 
 const icons={
@@ -36,7 +38,7 @@ const fields={priority:'Mission objective',site:'Surface arrival route',cargo:'C
 let draft={priority:'shelter',site:'plain',cargo:'battery',budget:'standard',payload:'none'};
 let task='reserve', support=3, selectedStation='', display='home';
 let enableSound=store.getState().sound;
-let assignee='pip',busyUntil=0,workTimer=null,dragItem=null,resourceSelected=null;
+let assignee='pip',busyUntil=0,workTimer=null,resourceSelected=null,replayStoryStep=null;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 let feedback='';
 let lesson=0;
@@ -70,11 +72,31 @@ const scene=createOutpost(map,document.querySelector('.markers'));
 document.querySelector('.map-controls').insertAdjacentHTML('afterbegin','<select aria-label="Inspect a station"><option value="">Outpost overview</option>'+Object.entries(stations).map(([id,[label]])=>'<option value="'+id+'">'+label+'</option>').join('')+'</select>');
 document.querySelector('.bar').insertAdjacentHTML('afterend','<div id="mission-strip" class="mission-strip" hidden></div>');
 document.querySelector('.utilities').insertAdjacentHTML('beforeend','<button data-act="audio-settings" aria-label="Music and effects settings">Mix</button>');
+document.querySelector('.utilities').insertAdjacentHTML('afterbegin','<button data-act="story" aria-label="Read the mission story">Story</button>');
 map.insertAdjacentHTML('beforeend','<div class="field-work" role="status" hidden></div><div class="coach" hidden></div>');
 document.querySelector('#app').insertAdjacentHTML('beforeend','<dialog id="audio-settings"><div class="dialog-top"><h2>Mission audio</h2><button data-act="close-audio">Close</button></div><p>An original ambient score, mining tools, ice collection, crew assignments, and achievement chimes.</p><label class="mixer">Background music<input type="range" min="0" max="1" step=".05" data-volume="music" aria-label="Background music volume"></label><label class="mixer">Sound effects<input type="range" min="0" max="1" step=".05" data-volume="effects" aria-label="Sound effects volume"></label></dialog>');
 const missionStrip=document.querySelector('#mission-strip');
 const workOverlay=document.querySelector('.field-work');
+document.querySelector('#app').insertAdjacentHTML('beforeend','<dialog id="mission-story" aria-labelledby="story-title"></dialog>');
+const storyDialog=document.querySelector('#mission-story');
+storyDialog.addEventListener('cancel',e=>{e.preventDefault();finishStory();});
 setVolumes(store.getState().music,store.getState().effects);
+
+function finishStory(){
+  if(replayStoryStep!==null){replayStoryStep=null;view();}
+  else store.getState().advanceBriefing(openingStory.length);
+  if(display==='mission'){scene.focus(null);focusLesson();}
+}
+function showStory(s,playing){
+  const step=replayStoryStep??(playing&&s.mode==='story'&&s.day===1?store.getState().briefingStep:null);
+  if(step===null||step>=openingStory.length){if(storyDialog.open)storyDialog.close();return;}
+  const beat=openingStory[step];
+  storyDialog.innerHTML='<div class="story-top"><span>ARRIVAL BRIEFING · '+(step+1)+' / '+openingStory.length+'</span><button data-act="story-skip">'+(replayStoryStep!==null?'Close story':'Skip briefing')+'</button></div>'+
+    '<div class="story-speaker">'+portrait(beat.role)+'<span>'+beat.speaker+'</span></div><h2 id="story-title">'+beat.title+'</h2><p class="story-text">'+beat.text+'</p><blockquote>“'+beat.quote+'”</blockquote><p class="story-fact">'+beat.fact+'</p>'+
+    '<div class="story-actions"><div class="story-dots" aria-hidden="true">'+openingStory.map((_,i)=>'<i class="'+(i===step?'current':'')+'"></i>').join('')+'</div>'+button('story-next',step===openingStory.length-1?'Enter Redhaven':'Continue briefing')+'</div>';
+  if(!storyDialog.open)storyDialog.showModal();
+  storyDialog.querySelector('[data-act=story-next]').focus({preventScroll:true});
+}
 
 function button(act,label,{disabled=false,secondary=false}={}) {
   return `<button class="${secondary?'secondary':'primary'}" data-act="${act}" ${disabled?'disabled':''}>${label} ${secondary?'':icon('arrow')}</button>`;
@@ -86,12 +108,12 @@ function select(field) {
  <small>${plans[field].find(p=>p.id===draft[field]).desc}</small></label>`;
 }
 function metric(kind,label,value,limit) {
-  return `<div class="metric" ${kind==='power'?'draggable="true" data-resource="power" role="button" tabindex="0" aria-label="Allocate power to a task"':''}><span>${icon(kind)} ${label}</span><strong>${value}<small>/ ${limit}</small></strong>
+  return `<div class="metric" ${kind==='power'?'data-resource="power" role="button" tabindex="0" aria-label="Allocate power to a task"':''}><span>${icon(kind)} ${label}</span><strong>${value}<small>/ ${limit}</small></strong>
   <meter aria-label="${label}" min="0" max="${limit}" value="${value}"></meter></div>`;
 }
 function resources(s){
   return `<div class="resources">${metric('air','Oxygen',s.oxygen,16)}${metric('power','Power',s.energy,s.capacity)}${metric('food','Meals',s.food,20)}</div>
-    <div class="inventory"><button draggable="true" data-resource="parts" aria-label="Allocate parts to a task"><strong>${s.parts}</strong> spare parts · drag to task</button><span>Shelter <strong>${s.shield?'reinforced':'basic'}</strong></span><span>Crop <strong>${s.crop}/3</strong></span><div class="integrity"><span>Outpost integrity <strong>${s.integrity??100}%</strong></span><meter min="0" max="100" value="${s.integrity??100}" aria-label="Outpost integrity"></meter></div></div>`;
+    <div class="inventory"><button data-resource="parts" aria-label="Allocate parts to a task"><strong>${s.parts}</strong> spare parts · drag to task</button><span>Shelter <strong>${s.shield?'reinforced':'basic'}</strong></span><span>Crop <strong>${s.crop}/3</strong></span></div>`;
 }
 function step(s){
  return `<div class="sol"><span>${s.mode==='story'?'STORY MISSION':'ENDLESS / CONTRACT '+Math.ceil((s.day-10)/10)}</span><strong>DAY ${s.day}${s.mode==='story'?' / 10':''}</strong></div>
@@ -202,6 +224,7 @@ async function runTask(){
 function view() {
  const {mission:s,sound}=store.getState();
  const playing=s&&display==='mission';
+ showStory(s,playing);
  missionStrip.hidden=!playing;
  document.body.classList.toggle('in-mission',!!playing);
  if(playing)missionStrip.innerHTML=dayProgress(s)+resources(s);
@@ -271,7 +294,7 @@ function view() {
  }
  if(fieldFocus) panel.querySelector('[data-field='+fieldFocus+']')?.focus({preventScroll:true});
  if(taskFocus) panel.querySelector('[data-task='+taskFocus+']')?.focus({preventScroll:true});
- if(s&&display==='mission')showTutorial(s);
+ if(s&&display==='mission'&&!storyDialog.open)showTutorial(s);
 }
 function moveTo(next) {
  display=next;
@@ -303,22 +326,9 @@ document.addEventListener('keydown',e=>{
   feedback='Select a task to allocate '+resourceSelected+'.';view();
  }
 });
-document.addEventListener('dragstart',e=>{
- const source=e.target.closest('[data-crew],[data-resource]');
- if(!source||display!=='mission'||store.getState().mission?.phase!=='plan')return;
- dragItem=source.dataset.crew?{crew:source.dataset.crew}:{resource:source.dataset.resource};
- e.dataTransfer.setData('text/plain',JSON.stringify(dragItem));
- e.dataTransfer.effectAllowed='copy';
- document.body.classList.add('assigning');
-});
-document.addEventListener('dragover',e=>{
- if(dragItem&&e.target.closest('[data-task],[data-location]')){e.preventDefault();e.dataTransfer.dropEffect='copy';}
-});
-document.addEventListener('drop',e=>{
- if(!dragItem)return;
- const target=e.target.closest('[data-task],[data-location]');
- if(!target)return;
- e.preventDefault();
+installAssignmentDrag({
+ canDrag:()=>display==='mission'&&store.getState().mission?.phase==='plan'&&busyUntil<=Date.now()&&!storyDialog.open,
+ onDrop:(dragItem,target)=>{
  const s=store.getState().mission;
  if(!s||s.phase!=='plan')return;
  if(dragItem.resource)resourceSelected=dragItem.resource;
@@ -329,9 +339,8 @@ document.addEventListener('drop',e=>{
    !s.workday?.completed.some(item=>item.id===option.id))?.id;
  if(selected)pickTask(selected,dragItem.crew??assignee);
  else{feedback='No available task matches this station and resource today.';playSound('warning');view();}
- dragItem=null;document.body.classList.remove('assigning');
+ },
 });
-document.addEventListener('dragend',()=>{dragItem=null;document.body.classList.remove('assigning');});
 
 document.addEventListener('change',e=>{
  if(e.target.matches('[aria-label="Inspect a station"]')){inspectStation(e.target.value);return;}
@@ -361,13 +370,21 @@ document.addEventListener('click',e=>{
  if(!act) return;
  if(enableSound&&act!=='sound') setSound(true);
  switch(act) {
+  case 'story':replayStoryStep=0;view();scene.focus(openingStory[0].station);break;
+  case 'story-skip':finishStory();break;
+  case 'story-next': {
+   const next=(replayStoryStep??api.briefingStep)+1;
+   if(next>=openingStory.length){finishStory();break;}
+   if(replayStoryStep!==null){replayStoryStep=next;view();}else api.advanceBriefing(next);
+   scene.focus(openingStory[next].station);playSound('message');break;
+  }
   case 'home': finishAnimation();moveTo('home'); break;
   case 'resume': defaults();api.prepare();moveTo('mission');break;
   case 'new': if(api.mission) restart.showModal();else moveTo('setup');break;
   case 'cancel-new': restart.close();break;
   case 'new-confirm': restart.close();moveTo('setup');break;
   case 'start':
-   defaults();setLesson(0);api.start(draft);api.prepare();playSound('success');moveTo('mission');break;
+   defaults();setLesson(0);api.start(draft);api.prepare();playSound('success');moveTo('mission');scene.focus('spacecraft');break;
   case 'work':runTask();break;
   case 'skip-work':finishAnimation();break;
   case 'tutorial-next':setLesson(lesson+1);view();focusLesson();break;
