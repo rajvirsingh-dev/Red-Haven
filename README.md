@@ -11,7 +11,13 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. Use the station labels or drag the map to inspect the outpost. Start a mission, check the payload and budget, and choose one optional task per day alongside the oxygen allocation. Read the forecast before confirming. The game saves your mission to the current browser. Sound can be enabled from the header.
+Open the local URL printed by Vite. Select station labels for close-up inspections or drag to orbit. Design your delivery, then follow the Day 1 crew tutorial. Assign Mika, Sol, or Pip to two tasks each day by selecting them or dragging a portrait onto a task or station. Drag power and parts chips onto compatible tasks to queue their allocation. Each crew specialty saves power on relevant work.
+
+Mining uses a drill-alignment challenge, ice processing uses a rotating-pipe puzzle, cargo recovery uses a manifest memory challenge, and harvesting asks you to identify mature, well-watered plants. Canceling an activity spends no resources. Successful work applies its costs and rewards once, then shows the expedition and collection animation. The progress bar advances after each task. Allocate life-support power and check the overnight forecast before ending the day.
+
+Mission saves, completed tasks, crew experience, deposits, and checkpoints are stored in the current browser. All original saves remain playable. Mining and ice deposits have three collections per mission or endless contract. The first two-task workday introduces your crew and highlights the relevant controls. A tutorial skip control is available. Mouse, keyboard, and touch selection provide alternatives to dragging. Reduced-motion mode skips expedition and camera animations.
+
+Enable sound from the header. Mix controls independently adjust the original 24-second ambient music loop and the layered mining, ice, radio, assignment, cargo, greenhouse, and commendation sound effects. The score changes tempo during shelter exercises and stops while the tab is hidden.
 
 ```sh
 npm test
@@ -28,3 +34,4 @@ The build produces a static site in `dist/` and works under a subpath. The simul
 - [NASA Mars communications analysis](https://ntrs.nasa.gov/citations/20220013418) · A simulated 16-minute one-way delay affects when Earth can reply.
 
 The observation cards show archived data. The mission dates, flare-to-shelter-cost mapping, resource values, and physical scenario are educational abstractions. The game does not predict Mars radiation exposure from flare class.
+The captain’s daily inbox shows the actual transport, resupply, and crew-rotation schedule. Each mission priority has a checklist with actionable steps. Outpost integrity records damage after a night with an unreinforced storm shelter, an uninspected battery fault, or critically low oxygen reserves. Maintenance restores integrity using work and parts. Damage values are educational training rules. The night forecast explains each pending deduction before confirmation.
