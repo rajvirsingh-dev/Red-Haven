@@ -30,11 +30,15 @@ export function setAudioContext(hazard){
 export function stopWorkSound(){
   if(workLoop!==null){clearInterval(workLoop);workLoop=null;}
 }
-export function playTaskSound(task){
-  stopWorkSound();
-  const cue=task==='mine'?'mine':task==='ice'?'ice':
+// The effect that matches each strike of a job: pickaxe, ice, radio, plants, crates, or tools.
+export function taskCue(task){
+  return task==='mine'?'mine':task==='ice'?'ice':
     ['relay','report','beacon','pulse'].includes(task)?'radio':
     ['grow','harvest'].includes(task)?'grow':['air','parts'].includes(task)?'delivery':'steps';
+}
+export function playTaskSound(task){
+  stopWorkSound();
+  const cue=taskCue(task);
   playSound(cue);
   let count=0;
   if(task!=='reserve')workLoop=setInterval(()=>{

@@ -26,25 +26,6 @@ export function objectiveChecklist(state){
 export function portrait(id) {
   return '<span class="crew-portrait '+id+'" aria-hidden="true"><i></i></span>';
 }
-export function crewPanel(state,selected) {
-  return '<section class="crew-roster"><h2>Assign your crew</h2><p>Drag a crew member onto a task or station. Or select a person, then a task.</p><div class="crew-list">'+crew.map(member=>
-    '<button data-crew="'+member.id+'" aria-pressed="'+(member.id===selected)+'" title="'+member.specialty+'">'+portrait(member.id)+
-    '<strong>'+member.name+'</strong><small>'+member.role+'</small><span>'+(state.experience?.[member.id]??0)+' tasks</span></button>').join('')+
-    '</div><p class="specialty">'+crewMember(selected).name+' · '+crewMember(selected).specialty+'</p></section>';
-}
-export function dayProgress(state) {
-  const completed=state.workday?.completed.length??0;
-  const done=['debrief','review'].includes(state.phase);
-  return '<div class="daily-status"><div class="day-heading"><strong>DAY '+state.day+(state.mode==='story'?' / 10':' · ENDLESS')+'</strong><span>'+
-    (state.phase==='plan'?completed+' / 2 tasks':state.phase==='debrief'?'Day complete':state.phase==='failed'?'Training paused':state.phase==='review'?'Mission complete':'New contract')+
-    '</span></div><div class="integrity"><span>Outpost integrity <strong>'+ (state.integrity??100)+'%</strong></span><meter min="0" max="100" value="'+(state.integrity??100)+'" aria-label="Outpost integrity"></meter></div><progress max="3" value="'+(done?3:completed)+'" aria-label="Daily progress"></progress></div>';
-}
-export function workSlots(state) {
-  const tasks=state.workday?.completed??[];
-  return '<div class="work-slots" aria-label="Daily work slots">'+[0,1].map(i=>
-    '<div class="'+(tasks[i]?'done':'')+'"><span>'+ (tasks[i]?'Complete':'Work slot '+(i+1))+'</span><strong>'+
-    (tasks[i]?crewMember(tasks[i].assignee).name+' · '+tasks[i].name:'Choose an assignment')+'</strong></div>').join('')+'</div>';
-}
 export function milestones(state) {
   return '<details class="objectives"><summary>Mission milestones · '+milestoneProgress(state).filter(x=>x.done).length+' / 4</summary>'+
     milestoneProgress(state).map(item=>'<p class="'+(item.done?'earned':'')+'">'+(item.done?'Complete · ':'In progress · ')+item.name+'</p>').join('')+'</details>';
@@ -55,13 +36,12 @@ export function tutorial(state,lesson,skip) {
   const completed=state.workday?.completed.length??0;
   if(state.phase==='debrief')return {role:'sol',title:'Ready for tomorrow',text:'Your work is saved. You now know how to assign crew, collect supplies, and keep the air system running. Continue to Day 2 when you are ready.',target:'[data-act=next]'};
   if(state.phase!=='plan')return null;
-  if(completed===2)return {role:'sol',title:'Keep everyone breathing',text:'Choose 3 power for life support to make 3 oxygen. Your crew uses 2 oxygen and 1 meal overnight. Check the night forecast, then end the day.',target:'[data-field=support]'};
-  if(completed===1)return {role:'pip',title:'Bring something back',text:'Try mining the ore seam for spare parts or collecting ice for oxygen. Pick a task, assign a crew member, and send them out. Each completed task fills one of today’s two work slots.',target:'[data-task=mine]'};
+  if(completed===2)return {role:'sol',title:'Keep everyone breathing',text:'Both jobs are done. Press End Day, choose how much power goes to life support, and check the night forecast. Your crew uses 2 oxygen and 1 meal overnight.',target:'[data-act=end-day]'};
+  if(completed===1)return {role:'pip',title:'Bring something back',text:'Drag a crew card onto the Ore seam for spare parts, or onto the Ice deposit for oxygen. I can work outside without using suit oxygen.',target:'[data-location=ore]'};
   const lessons=[
-    {role:'pip',title:'Welcome to Redhaven',text:'Your oxygen, power, meals, and parts are always at the top. These supplies keep the outpost running. You have two crew work slots each day.',target:'#mission-strip',next:true},
-    {role:'mika',title:'Choose someone for the job',text:'I’m Mika, the engineer. Select me below, or drag my portrait onto Restore habitat. My specialty saves power on repairs and mining.',target:'[data-crew=mika]',next:true},
-    {role:'mika',title:'Give your crew a task',text:'Select Restore habitat. The card shows its power and parts costs. Dragging a power or parts chip onto the card also queues the task.',target:'[data-task=repair]',next:true},
-    {role:'mika',title:'Send the crew',text:'Review the assignment and press Send crew. Watch your astronaut travel, work, and return. The next task becomes available when the expedition finishes.',target:'[data-act=work]'},
+    {role:'pip',title:'Welcome to Redhaven',text:'Your oxygen, power, meals, and parts are in the top corner. These supplies keep the outpost running. You get two crew jobs each day.',target:'#mission-strip',next:true},
+    {role:'mika',title:'Send me to work',text:'I’m Mika, the engineer. Drag my card from the bottom bar onto the Habitat. You can also tap my card, then tap the Habitat.',target:'[data-crew=mika]'},
+    {role:'mika',title:'Pick a job',text:'Each job card shows its cost. Tap Restore habitat to send me out. Watch me walk over, work, and come back.',target:'[data-task=repair]'},
   ];
   return lessons[Math.min(lesson,lessons.length-1)];
 }

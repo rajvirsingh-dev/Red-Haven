@@ -1,26 +1,72 @@
 .activity-dialog{width:min(590px,calc(100% - 24px));padding:24px}
 .activity-dialog .primary{margin-top:18px}
 .activity-dialog h2{font-size:1.5rem;line-height:1.12}
+.activity-dialog.solved [data-piece],.activity-dialog.solved .drill-rock{pointer-events:none}
 .puzzle-feedback{min-height:1.6em;color:#f7c993;font-size:.85rem}
-.drill-rock{position:relative;height:120px;margin:18px 0;background:linear-gradient(35deg,#79563a 20%,#9e7350 20%,#9e7350 46%,#614b38 46%,#614b38 67%,#a27850 67%);border-radius:25px 15px 22px 10px;overflow:hidden}
-.drill-band{position:absolute;top:0;bottom:0;width:10%;translate:-50% 0;background:#d4eaa56b;border-left:2px solid #d9e6a0;border-right:2px solid #d9e6a0}
-.drill-aim{position:absolute;top:27px;bottom:27px;width:3px;translate:-50% 0;background:#f9d99a;box-shadow:0 0 0 6px #161f2970}
+.zone-label{flex-basis:100%;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:#bfd1bd}
+
+/* Shared drag pieces and drop zones */
+.activity-dialog [data-piece]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.activity-dialog [data-piece]:hover{transform:translateY(-2px);box-shadow:0 6px 14px #0b100d66}
+.activity-dialog.dragging-piece,.activity-dialog.dragging-piece *{cursor:grabbing}
+.activity-dialog [data-piece].piece-origin{opacity:.3;transform:none;box-shadow:none}
+.piece-ghost{position:fixed;z-index:20;margin:0;pointer-events:none;opacity:.95;transform:rotate(-3deg) scale(1.06)!important;box-shadow:0 14px 28px #050806aa!important}
+.piece-tray{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;margin:12px 0 0;padding:10px;min-height:76px;border:1px dashed #5d6e5c;border-radius:10px;background:#1a221d;transition:border-color .15s ease,background .15s ease}
+.piece-tray>em,.seal-slot>em{font-size:.78rem;color:#93a491;font-style:normal;margin:auto}
+.activity-dialog.dragging-piece [data-drop]{border-color:#a7c8a5}
+.activity-dialog [data-drop].drop-hover{border-color:#f0aa75!important;border-style:solid;background:#3a3125}
+
+/* Drill */
+.drill-rock{position:relative;height:120px;margin:18px 0 10px;background:linear-gradient(35deg,#79563a 20%,#9e7350 20%,#9e7350 46%,#614b38 46%,#614b38 67%,#a27850 67%);border-radius:25px 15px 22px 10px;overflow:hidden;touch-action:none}
+.drill-rock:focus-visible{outline:2px solid #f8c99d;outline-offset:3px}
+.drill-band{position:absolute;top:0;bottom:0;width:10%;translate:-50% 0;background:#d4eaa56b;border-left:2px solid #d9e6a0;border-right:2px solid #d9e6a0;animation:fracture-glow 1.6s ease-in-out infinite}
+.drill-rock.on-target .drill-band{background:#e7f5b2a8}
+.drill-aim{position:absolute;top:0;width:34px;height:88px;translate:-50% 0;cursor:grab;touch-action:none;display:flex;justify-content:center}
+.drill-aim:before{content:"⇆";position:absolute;top:4px;font-size:.7rem;color:#241d16;z-index:1}
+.drill-bit{width:26px;height:100%;background:linear-gradient(90deg,#9aa3a0,#eef1e6 45%,#8c9592);clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);filter:drop-shadow(0 3px 2px #1a1209)}
+.drill-rock.grabbed .drill-aim{cursor:grabbing}
+.drill-rock.grabbed .drill-bit{animation:drill-shake .12s linear infinite}
+.drill-progress{display:flex;gap:6px}
+.drill-progress span{flex:1;height:6px;border-radius:3px;background:#3a463c}
+.drill-progress span.done{background:#d9b47a}
+@keyframes fracture-glow{50%{box-shadow:0 0 18px #e5f3a8 inset}}
+@keyframes drill-shake{50%{translate:1px 0}}
+
+/* Pipes */
 .pipe-labels{display:flex;justify-content:space-between;font-size:.82rem;color:#bde3db}
 .pipe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
-.pipe-tile,.pipe-rock{aspect-ratio:1;border-radius:8px}
-.pipe-tile{position:relative;background:#283b35;border:1px solid #829884}
+.pipe-slot,.pipe-rock{aspect-ratio:1;border-radius:8px}
+.pipe-slot{position:relative;border:1px dashed #6f8679;background:#18221f}
+.pipe-slot:not(.empty){border-style:solid;border-color:transparent;background:none}
 .pipe-rock{background:#4c4434}
-.pipe-tile i{position:absolute;display:none;background:#abcfc5;width:16%;height:50%;left:42%;top:0;transform-origin:50% 100%}
+.slot-place{position:absolute;inset:0;width:100%;height:100%;background:none!important;border:0!important;border-radius:8px}
+.pipe-tile{position:relative;display:block!important;padding:0!important;width:100%;aspect-ratio:1;background:#283b35!important;border:1px solid #829884!important;border-radius:8px!important}
+.pipe-tile.selected{border-color:#f0aa75!important;box-shadow:0 0 0 2px #f0aa75}
+.pipe-tile i{position:absolute;display:none;background:#abcfc5;width:16%;height:50%;left:42%;top:0;transform-origin:50% 100%;transition:background .2s ease}
 .pipe-tile i.open{display:block}.pipe-tile i.right{rotate:90deg}.pipe-tile i.down{rotate:180deg}.pipe-tile i.left{rotate:270deg}
 .pipe-tile:after{content:"";position:absolute;inset:38%;border-radius:50%;background:#658e83;border:2px solid #e1ecce}
+.pipe-tile.flowing{background:#24414a!important}
+.pipe-tile.flowing i.open{background:#7fd6f2}
+.pipe-tile.flowing:after{background:#7fd6f2}
+.pipe-tray .pipe-tile{width:62px}
+
+/* Manifest */
 .manifest-sequence{display:flex;gap:12px;justify-content:center;margin:25px 0}
 .manifest-sequence>div{border:1px solid #91b5a2;padding:18px 12px;display:grid;gap:7px;border-radius:9px;min-width:25%}
 .manifest-sequence span{font-size:.75rem;color:#bfd1bd}
-.manifest-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.manifest-options button{justify-content:center;padding:20px}
-.plant-options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-.plant-options button{display:flex;flex-direction:column;align-items:center;padding:12px 5px;gap:4px;font-size:.72rem}
-.plant-options button.picked{border-color:#e9c17c;background:#42553a}
+.seal-slot{border-style:dashed!important;min-height:96px;align-content:start;transition:border-color .15s ease,background .15s ease}
+.manifest-sequence.wrong .seal-slot{border-color:#e07a5f!important;background:#3b2420;animation:seal-shake .3s ease}
+.seal-chip{justify-content:center;padding:12px 16px!important;font-weight:600;background:#33402f!important;border-color:#8fa883!important}
+.seal-tray{justify-content:center}
+.seal-tray .zone-label{text-align:center}
+@keyframes seal-shake{25%{translate:-5px 0}75%{translate:5px 0}}
+
+/* Harvest */
+.plant-card{display:flex!important;flex-direction:column;align-items:center;width:calc((100% - 16px)/3);padding:12px 5px!important;gap:4px!important;font-size:.72rem!important}
+.harvest-crate{background:repeating-linear-gradient(90deg,#3a2f22 0 34px,#33291e 34px 36px);border-color:#9c835d;min-height:120px}
+.harvest-crate .plant-card{background:#42553a!important;border-color:#e9c17c!important}
 .plant-shape{display:block;width:22px;height:30px;background:#9fc879;border-radius:90% 0 80% 0;rotate:-30deg;margin:2px 0 9px}
 .plant-shape:after{content:"";display:block;width:2px;height:38px;rotate:30deg;background:#e0d5a2;translate:10px 4px}
-@media(max-width:500px){.activity-dialog{padding:17px}.activity-dialog h2{font-size:1.25rem}.plant-options{gap:4px}.manifest-sequence{gap:6px}.manifest-sequence>div{padding:12px 9px}}
+
+@media(max-width:500px){.activity-dialog{padding:17px}.activity-dialog h2{font-size:1.25rem}.piece-tray{gap:4px;padding:8px}.plant-card{width:calc((100% - 8px)/3)}.manifest-sequence{gap:6px}.manifest-sequence>div{padding:12px 9px}.pipe-tray .pipe-tile{width:52px}}
+@media(prefers-reduced-motion:reduce){.drill-band,.drill-rock.grabbed .drill-bit,.manifest-sequence.wrong .seal-slot{animation:none}.activity-dialog [data-piece]{transition:none}}
